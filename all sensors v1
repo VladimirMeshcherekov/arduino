@@ -1,0 +1,126 @@
+#include <TroykaMQ.h>
+
+#include "DHT.h"
+
+#define DHTPIN 2     // what digital pin we're connected to
+
+#define DHTTYPE DHT11   // DHT 11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+////////////////////////////
+
+#define PIN_MQ9         A1 // пин для mq9
+
+MQ9 mq9(PIN_MQ9);
+
+/////////////////////////////
+
+#define INTERVAL_GET_DATA 2000
+
+#define MQ2PIN     A0 // пин      
+
+MQ2 mq2(MQ2PIN);
+
+unsigned long millis_int1=0;   //mq2
+
+
+
+
+
+void setup() {
+  Serial.begin(9600);
+
+ mq2.calibrate(); // калибровка
+  mq2.getRo();
+
+  mq9.cycleHeat();
+
+  dht.begin();
+}
+
+
+
+
+
+void loop() {
+ ///////////////////////////////////////////////////////////////////////
+ if (!mq9.isCalibrated() && mq9.atHeatCycleEnd()) {
+    // выполняем калибровку датчика на чистом воздухе
+    mq9.calibrate();
+    // выводим сопротивление датчика в чистом воздухе (Ro) в serial-порт
+    Serial.print("Ro = ");
+    Serial.println(mq9.getRo());
+    // запускаем термоцикл
+    mq9.cycleHeat();
+  }
+  // если прошёл интевал нагрева датчика                                                      //если mq9 будет работать, если нет то лучше не запускать
+  // и калибровка была совершена
+  if (mq9.isCalibrated() && mq9.atHeatCycleEnd()) {
+    // выводим отношения текущего сопротивление датчика
+    // к сопротивлению датчика в чистом воздухе (Rs/Ro)
+    Serial.print("Ratio: ");
+    Serial.print(mq9.readRatio());
+    // выводим значения газов в ppm
+    Serial.print(" LPG: ");
+    Serial.print(mq9.readLPG());
+    Serial.print(" ppm ");
+    Serial.print(" Methane: ");
+    Serial.print(mq9.readMethane());
+    Serial.print(" ppm ");
+    Serial.print(" CarbonMonoxide: ");
+    Serial.print(mq9.readCarbonMonoxide());
+    Serial.println(" ppm ");
+    delay(100);
+    // запускаем термоцикл
+    mq9.cycleHeat();
+  }
+
+////////////////////////////////////////////////////////////////////
+
+  if(millis()-millis_int1 >= INTERVAL_GET_DATA) {
+      // получение данных c датчика mq2
+      float  propan= mq2.readLPG();
+      // выводим значения газа в ppm
+      Serial.print("propan=");
+      Serial.print(propan);
+      Serial.println(" ppm ");
+      float  methan=mq2.readMethane();
+      // выводим значения газа в ppm
+      Serial.print("methan=");
+      Serial.print(methan);                                                         //для mq2
+      Serial.println(" ppm ");
+      float  smoke= mq2.readSmoke();
+      // выводим значения газа в ppm
+      Serial.print("smoke=");
+      Serial.print(smoke);
+      Serial.println(" ppm ");
+      // старт интервала отсчета
+        millis_int1=millis();
+  }
+   
+
+///////////////////////////////////////////////////////////////
+
+
+  delay(2000);
+
+
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(h) || isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }                                                                             // dht11
+
+  Serial.print("Humidity: ");
+  Serial.print(h);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(t);
+  Serial.print(" *C ");
+  
+}
